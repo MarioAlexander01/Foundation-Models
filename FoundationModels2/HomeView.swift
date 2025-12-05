@@ -7,144 +7,132 @@
 
 import SwiftUI
 import FoundationModels
+import Lottie
 
 struct HomeView: View {
     @Environment(NavigationManger.self) var navManager
-    @State private var isExpanded: Bool = false
-    @Namespace private var namespace
     @State private var prompt = ""
     @State private var reply = ""
     @State private var isLoading = false
-    
+
     var body: some View {
         NavigationStack {
             ZStack {
-                // MARK: - Gradient Background
-                LinearGradient(
-                    colors: [
-                        .purple.opacity(0.7),
-                        .blue.opacity(0.7),
-                        .white.opacity(0.7),
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea() // makes the gradient fill the whole screen
-                
-                VStack(alignment: .center) {
-                    ScrollView {
-                        Text(reply)
-                            .padding(.top, 8)
-                    }
-                    .padding()
-                    
-                    GlassEffectContainer {
-                        
-                        HStack {
-                            TextField("Question", text: $prompt)
-                                .padding()
-                                .frame(height: 80.0)
-                                .glassEffect()
-                                .glassEffectID("text", in: namespace)
-                            
-                            Image(systemName: "paperplane.fill")
-                                .frame(width: 80.0, height: 80.0)
-                                .font(.system(size: 36))
-                                .glassEffect(.regular.interactive())
-                                .glassEffectID("text", in: namespace)
-                                .disabled(prompt.isEmpty)
-                                .onTapGesture {
-                                    let session = LanguageModelSession()
-                                    let question = prompt
-                                    prompt.removeAll()
+                Color(.systemGray6)
+                    .ignoresSafeArea()
 
-                                    isLoading = true
-                                    Task {
-                                        do {
-                                            reply = try await session.respond(to: question).content
-                                        } catch {
-                                            reply = "Something went wrong. Please try again.\n\n\(error.localizedDescription)"
-                                        }
-                                        isLoading = false
-                                    }
-                                }
-                        }
-                    }
-                    
-                    GlassEffectContainer() {
-                        HStack(spacing: 0) {
-                            GlassEffectContainer(spacing: 40.0) {
-                                HStack(spacing: 30) {
-                                    Image(systemName: "ellipsis")
-                                        .frame(width: 80.0, height: 80.0)
-                                        .font(.system(size: 36))
-                                        .glassEffect(.regular.interactive())
-                                        .glassEffectID("pencil", in: namespace)
-                                        .onTapGesture {
-                                            withAnimation {
-                                                isExpanded.toggle()
-                                            }
-                                        }
-                                    
-                                    
-                                    if isExpanded {
-                                        Group {
-                                            Image(systemName: "eraser.fill")
-                                                .frame(width: 80.0, height: 80.0)
-                                                .font(.system(size: 36))
-                                                .glassEffect()
-                                                .glassEffectID("eraser", in: namespace)
-                                            
-                                            Image(systemName: "arrow.trianglehead.clockwise")
-                                                .frame(width: 80.0, height: 80.0)
-                                                .font(.system(size: 36))
-                                                .glassEffect()
-                                                .glassEffectID("eraser", in: namespace)
-                                        }
-                                        .glassEffectUnion(id: "menu", namespace: namespace)
-                                    }
-                                }
+                VStack(spacing: 24) {
+                    HStack {
+                        Menu {
+                            Button("Model 1.0") {}
+                                .glassEffect(.clear.interactive())
+                            Button("Model 2.0") {}
+                                .glassEffect(.clear.interactive())
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "line.3.horizontal")
+                                    .padding(12)
+                                    .foregroundStyle(.black)
+                                    .glassEffect(.regular.interactive())
                             }
-                            
-                            Spacer()
-                            
-                            
+                        }
+
+                        Spacer()
+
+                        Text("Sample")
+                            .font(.title3.weight(.semibold))
+                        
+                        Spacer()
+
+                        Button { } label: {
+                            Image(systemName: "face.dashed")
+                                .padding(12)
+                                .foregroundStyle(.black)
+                                .glassEffect(.regular.interactive())
                         }
                     }
-                    
+                    .padding(.horizontal)
+
+                    Spacer()
+
+                    // MARK: - Middle Prompt Area
+                    if reply.isEmpty {
+                        VStack(spacing: 12) {
+                            Image(systemName: "apple.writing.tools")
+                                .resizable()
+                                .frame(width: 40, height: 40)
+                                .foregroundStyle(.indigo)
+                            
+                            Text("Ask me Anything!")
+                                .font(.title2.weight(.medium))
+                                .multilineTextAlignment(.center)
+                                .foregroundStyle(.black.opacity(0.85))
+                        }
+                        .padding(.horizontal)
+                    } else {
+                        ScrollView {
+                            Text(reply)
+                        }
+                    }
+
+                    Spacer()
+
+                    // MARK: - Chat Input
+                    HStack {
+                        TextField("Ask me Anything", text: $prompt)
+                            .padding(.horizontal, 16)
+                            .frame(height: 55)
+                            .glassEffect(.regular.interactive())
+
+                        HStack(spacing: 6) {
+                            Image(systemName: "paperplane.fill")
+                                .font(.system(size: 22))
+                        }
+                        .padding(14)
+                        .foregroundColor(.black)
+                        .glassEffect(.clear.interactive())
+                        .onTapGesture {
+                            sendMessage()
+                        }
+                    }
+                    .padding(.horizontal)
                 }
-                .padding()
-                .allowsHitTesting(!isLoading)
-                
-                // Loading overlay
+
+                // MARK: - Loading Overlay
                 if isLoading {
-                    Color.black.opacity(0.25)
+                    Color.black.opacity(0.3)
                         .ignoresSafeArea()
-                        .transition(.opacity)
-                        .zIndex(1)
                         .overlay(
-                            VStack(spacing: 16) {
-                                ProgressView()
-                                    .progressViewStyle(.circular)
-                                    .tint(.white)
-                                Text("Thinking…")
-                                    .font(.headline)
-                                    .foregroundStyle(.white)
+                            VStack {
+                                LottieView(name: "Trail loading", loopMode: .loop)
+                                    .frame(width: 120, height: 120)
                             }
                             .padding(24)
-                            .background(
-                                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                    .fill(.ultraThinMaterial)
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                    .stroke(Color.white.opacity(0.2), lineWidth: 1)
-                            )
+                            .background(.ultraThinMaterial)
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
                         )
-                        .allowsHitTesting(true)
                 }
             }
-            .navigationTitle(navManager.selectedTab.rawValue)
+            .navigationBarHidden(true)
+        }
+    }
+
+    // MARK: - Handle Sending
+    private func sendMessage() {
+        guard !prompt.isEmpty else { return }
+        let question = prompt
+        prompt.removeAll()
+
+        let session = LanguageModelSession()
+        isLoading = true
+
+        Task {
+            do {
+                reply = try await session.respond(to: question).content
+            } catch {
+                reply = "Something went wrong. Please try again.\n\(error.localizedDescription)"
+            }
+            isLoading = false
         }
     }
 }
