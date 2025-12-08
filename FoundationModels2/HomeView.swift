@@ -14,125 +14,135 @@ struct HomeView: View {
     @State private var prompt = ""
     @State private var reply = ""
     @State private var isLoading = false
-
+    let session = LanguageModelSession(instructions: "You are a culinary assistant AI that specializes in generating high-quality, practical, and creative recipes. Your purpose is to help users craft meals based on their preferences, dietary restrictions, available ingredients, cooking skill level, and desired cuisine style.")
+    
     var body: some View {
         NavigationStack {
             ZStack {
                 Color(.systemGray6)
                     .ignoresSafeArea()
-
+                
                 VStack(spacing: 24) {
-                    HStack {
-                        Menu {
-                            Button("Model 1.0") {}
-                                .glassEffect(.clear.interactive())
-                            Button("Model 2.0") {}
-                                .glassEffect(.clear.interactive())
-                        } label: {
-                            HStack(spacing: 4) {
-                                Image(systemName: "line.3.horizontal")
-                                    .padding(12)
-                                    .foregroundStyle(.black)
-                                    .glassEffect(.regular.interactive())
-                            }
-                        }
-
-                        Spacer()
-
-                        Text("Sample")
-                            .font(.title3.weight(.semibold))
-                        
-                        Spacer()
-
-                        Button { } label: {
-                            Image(systemName: "face.dashed")
-                                .padding(12)
-                                .foregroundStyle(.black)
-                                .glassEffect(.regular.interactive())
-                        }
-                    }
-                    .padding(.horizontal)
-
+                    headerView
+                    
                     Spacer()
-
-                    // MARK: - Middle Prompt Area
-                    if reply.isEmpty {
-                        VStack(spacing: 12) {
-                            Image(systemName: "apple.writing.tools")
-                                .resizable()
-                                .frame(width: 40, height: 40)
-                                .foregroundStyle(.indigo)
-                            
-                            Text("Ask me Anything!")
-                                .font(.title2.weight(.medium))
-                                .multilineTextAlignment(.center)
-                                .foregroundStyle(.black.opacity(0.85))
-                        }
-                        .padding(.horizontal)
-                    } else {
-                        ScrollView {
-                            Text(reply)
-                        }
-                    }
-
+                    
+                    replySectionView
+                    
                     Spacer()
-
-                    // MARK: - Chat Input
-                    HStack {
-                        TextField("Ask me Anything", text: $prompt)
-                            .padding(.horizontal, 16)
-                            .frame(height: 55)
-                            .glassEffect(.regular.interactive())
-
-                        HStack(spacing: 6) {
-                            Image(systemName: "paperplane.fill")
-                                .font(.system(size: 22))
-                        }
-                        .padding(14)
-                        .foregroundColor(.black)
-                        .glassEffect(.clear.interactive())
-                        .onTapGesture {
-                            sendMessage()
-                        }
-                    }
-                    .padding(.horizontal)
-                }
-
-                // MARK: - Loading Overlay
-                if isLoading {
-                    Color.black.opacity(0.3)
-                        .ignoresSafeArea()
-                        .overlay(
-                            VStack {
-                                LottieView(name: "Trail loading", loopMode: .loop)
-                                    .frame(width: 120, height: 120)
-                            }
-                            .padding(24)
-                            .background(.ultraThinMaterial)
-                            .clipShape(RoundedRectangle(cornerRadius: 16))
-                        )
+                    
+                    promptView
                 }
             }
             .navigationBarHidden(true)
         }
     }
-
+    
+    private var headerView: some View {
+        HStack {
+            Menu {
+                Button("Model 1.0") {}
+                    .glassEffect(.clear.interactive())
+                Button("Model 2.0") {}
+                    .glassEffect(.clear.interactive())
+            } label: {
+                Image(systemName: "line.3.horizontal")
+                    .padding(12)
+                    .foregroundStyle(.black)
+                    .glassEffect(.regular.interactive())
+            }
+            
+            Spacer()
+            
+            Text("ChefGPT")
+                .font(.title3.weight(.semibold))
+            
+            Spacer()
+            
+            Button {
+                reply.removeAll()
+            } label: {
+                Image(systemName: "arrow.clockwise")
+                    .padding(12)
+                    .foregroundStyle(.black)
+                    .glassEffect(.regular.interactive())
+            }
+        }
+        .padding(.horizontal)
+    }
+    
+    private var replySectionView: some View {
+        if reply.isEmpty {
+            return AnyView(
+                VStack(spacing: 12) {
+                    Image(systemName: "apple.writing.tools")
+                        .resizable()
+                        .frame(width: 40, height: 40)
+                        .foregroundStyle(.indigo)
+                    
+                    Text("What do you want to cook today?")
+                        .font(.title2.weight(.medium))
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(.black.opacity(0.85))
+                }
+                    .padding(.horizontal)
+            )
+        } else {
+            return AnyView(
+                ScrollView {
+                    VStack(spacing: 16) {
+                        if session.isResponding {
+                            LottieView(name: "Trail loading", loopMode: .loop)
+                                .frame(width: 120, height: 120)
+                        }
+                        
+                        Text(.init(reply))
+                            .padding()
+                    }
+                }
+            )
+        }
+    }
+    
+    private var promptView: some View {
+        HStack {
+            TextField("Ask me Anything", text: $prompt)
+                .padding(.horizontal, 16)
+                .frame(height: 55)
+                .glassEffect(.regular.interactive())
+            
+            HStack(spacing: 6) {
+                Image(systemName: "paperplane.fill")
+                    .font(.system(size: 22))
+            }
+            .padding(14)
+            .foregroundColor(.black)
+            .glassEffect(.clear.interactive())
+            .onTapGesture {
+                sendMessage()
+            }
+            .disabled(session.isResponding)
+        }
+        .padding(.horizontal)
+        .padding(.bottom, 16)
+    }
+    
     // MARK: - Handle Sending
     private func sendMessage() {
         guard !prompt.isEmpty else { return }
-        let question = prompt
-        prompt.removeAll()
-
-        let session = LanguageModelSession()
-        isLoading = true
-
+        
         Task {
             do {
-                reply = try await session.respond(to: question).content
+                let stream = session.streamResponse(to: prompt)
+                for try await partial in stream {
+                    withAnimation {
+                        reply = partial.content
+                    }
+                }
+                prompt.removeAll()
             } catch {
                 reply = "Something went wrong. Please try again.\n\(error.localizedDescription)"
             }
-            isLoading = false
         }
     }
 }

@@ -10,7 +10,6 @@ import SwiftUI
 enum TabsMenu: String, CaseIterable, View {
     case home = "Home"
     case profile = "Profile"
-    case setting = "Settings"
     
     var id: Self { self }
     var body: some View {
@@ -19,8 +18,15 @@ enum TabsMenu: String, CaseIterable, View {
             HomeView()
         case .profile:
             Text("2")
-        case .setting:
-            Text("3")
+        }
+    }
+    
+    var logo: String {
+        switch self {
+        case .home:
+            "fork.knife.circle"
+        case .profile:
+            "map.circle"
         }
     }
 }
@@ -35,12 +41,14 @@ struct TabsView: View {
                     let tab = TabsMenu.allCases[index]
                     Tab(
                         tab.rawValue,
-                        systemImage: "\(index + 1).circle",
+                        systemImage: tab.logo,
                         value: tab) {
                             tab
                         }
                 }
         }
+        .tint(.indigo)
+        .tabBarMinimizeBehavior(.automatic)
     }
 }
 
